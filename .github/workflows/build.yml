@@ -8,51 +8,74 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
 
+      - name: 定位插件目录
+        run: |
+          if [ -f "$GITHUB_WORKSPACE/luci-app-rebootschedule/Makefile" ]; then
+            echo "PKG_DIR=$GITHUB_WORKSPACE/luci-app-rebootschedule" >> "$GITHUB_ENV"
+          elif [ -f "$GITHUB_WORKSPACE/Makefile" ]; then
+            echo "PKG_DIR=$GITHUB_WORKSPACE" >> "$GITHUB_ENV"
+          else
+            echo "::error::找不到 Makefile"; exit 1
+          fi
+
       - name: 安装构建依赖
         run: |
-          sudo apt-get update -qq
+          sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
             build-essential gawk git gettext unzip zlib1g-dev \
             libncurses-dev rsync cpio python3 file zstd wget ca-certificates
 
-      - name: 下载 SDK（ImmortalWrt snapshot / airoha-an7581）
+      - name: 下载 SDK
         run: |
+          set -x
           BASE=https://downloads.immortalwrt.org/snapshots/targets/airoha/an7581
-          URL=$(curl -fsSL "$BASE/" | grep -oE 'immortalwrt-sdk-[^"]+Linux-x86_64\.tar\.zst' | head -1)
-          if [ -z "$URL" ]; then
-            echo "::error::没在 $BASE 找到 SDK"
-            exit 1
+          PINNED="immortalwrt-sdk-airoha-an7581_gcc-14.4.0_musl.Linux-x86_64.tar.zst"
+          URL="$PINNED"
+          if ! curl -fsIL --retry 2 --max-time 60 "$BASE/$URL" >/dev/null; then
+            URL=$(curl -fsSL --max-time 60 "$BASE/" | grep -oE 'immortalwrt-sdk-[^"]+Linux-x86_64\.tar\.zst' | head -1)
           fi
+          [ -n "$URL" ] || { echo "::error::没找到 SDK"; exit 1; }
           echo "SDK = $URL"
-          curl -fL --retry 3 -o sdk.tar.zst "$BASE/$URL"
+          curl -fL --retry 3 --retry-delay 5 -o sdk.tar.zst "$BASE/$URL"
+          zstd -t sdk.tar.zst
           mkdir -p "$RUNNER_TEMP/sdk"
           tar --zstd -xf sdk.tar.zst -C "$RUNNER_TEMP/sdk" --strip-components=1
-          du -sh "$RUNNER_TEMP/sdk"
 
-      - name: 准备 luci feed
-        working-directory: ${{ runner.temp }}/sdk
+      - name: 准备 feeds
         run: |
-          ./scripts/feeds update luci
-          ./scripts/feeds install -a -p luci
+          set -o pipefail
+          cd "$RUNNER_TEMP/sdk"
+          ./scripts/feeds update -a
+          ./scripts/feeds install -a
+
+      - name: 补 lua 头文件
+        run: |
+          set -o pipefail
+          cd "$RUNNER_TEMP/sdk"
+          make defconfig
+          # SDK 的 staging 里没有 lua 开发头，luci-base -> lucihttp 会挂。
+          # 先显式编一次 lua，把 lua.h 装进 staging。
+          make package/feeds/packages/lua/compile V=s 2>&1 | tail -15
+          ls -l staging_dir/target-*/usr/include/lua*.h
 
       - name: 编译插件
-        working-directory: ${{ runner.temp }}/sdk
         run: |
+          set -o pipefail
+          cd "$RUNNER_TEMP/sdk"
           rm -rf package/luci-app-rebootschedule
-          cp -r "$GITHUB_WORKSPACE/luci-app-rebootschedule" package/
-          make defconfig
-          make package/luci-app-rebootschedule/compile V=s
+          cp -r "$PKG_DIR" package/luci-app-rebootschedule
+          make -j"$(nproc)" package/luci-app-rebootschedule/compile V=s 2>&1 | tail -150
 
       - name: 收集产物
         run: |
           mkdir -p out
           find "$RUNNER_TEMP/sdk/bin" -name 'luci-app-rebootschedule*.apk' -exec cp -v {} out/ \;
           ls -l out
-          test -n "$(ls -A out)" || { echo "::error::没有产出 apk"; exit 1; }
+          test -n "$(ls -A out)" || { echo "::error::没产出 apk"; exit 1; }
 
       - uses: actions/upload-artifact@v4
         with:
