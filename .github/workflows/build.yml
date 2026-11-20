@@ -85,12 +85,18 @@ jobs:
           gh release view latest >/dev/null 2>&1 || \
             gh release create latest \
               --title "最新构建" \
-              --notes "每次 push 自动构建，覆盖本 Release 的产物。
+              --notes "每次 push 自动构建，本 Release 只保留最新产物。
 
           - 提交：${{ github.sha }}
           - 运行：#${{ github.run_number }}" \
               --prerelease
+
+          # 清掉上一版产物，避免版本号升级后旧文件堆积
+          gh release view latest --json assets --jq '.assets[].name' 2>/dev/null | while read -r a; do
+            [ -n "$a" ] && gh release delete-asset latest "$a" -y
+          done
+
           gh release upload latest out/*.apk --clobber
           echo "=== 当前 release 产物 ==="
-          gh release view latest --json tagName,assets \
-            --jq '.tagName, (.assets[] | "\(.name)  \(.size) bytes")'
+          gh release view latest --json tagName,assets,updatedAt \
+            --jq '.tagName, .updatedAt, (.assets[] | "\(.name)  \(.size) bytes")'
