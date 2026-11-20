@@ -8,7 +8,7 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 120
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
 
@@ -49,18 +49,8 @@ jobs:
         run: |
           set -o pipefail
           cd "$RUNNER_TEMP/sdk"
-          ./scripts/feeds update -a
-          ./scripts/feeds install -a
-
-      - name: 补 lua 头文件
-        run: |
-          set -o pipefail
-          cd "$RUNNER_TEMP/sdk"
-          make defconfig
-          # SDK 的 staging 里没有 lua 开发头，luci-base -> lucihttp 会挂。
-          # 先显式编一次 lua，把 lua.h 装进 staging。
-          make package/feeds/packages/lua/compile V=s 2>&1 | tail -15
-          ls -l staging_dir/target-*/usr/include/lua*.h
+          ./scripts/feeds update luci
+          ./scripts/feeds install -a -p luci
 
       - name: 编译插件
         run: |
@@ -68,7 +58,9 @@ jobs:
           cd "$RUNNER_TEMP/sdk"
           rm -rf package/luci-app-rebootschedule
           cp -r "$PKG_DIR" package/luci-app-rebootschedule
-          make -j"$(nproc)" package/luci-app-rebootschedule/compile V=s 2>&1 | tail -150
+          ls -la package/luci-app-rebootschedule
+          make defconfig 2>&1 | tail -10
+          make package/luci-app-rebootschedule/compile V=s 2>&1 | tail -120
 
       - name: 收集产物
         run: |

@@ -19,7 +19,9 @@ define Package/luci-app-rebootschedule
   CATEGORY:=LuCI
   SUBMENU:=3. Applications
   TITLE:=LuCI support for scheduled reboot
-  DEPENDS:=+luci-base
+  # 这是个纯脚本包，不写 +luci-base 是故意的：写了会让 buildroot 去编译
+  # luci-base -> lucihttp，而 SDK 的 staging 里缺 lua 头文件，构建直接崩。
+  # luci-base 在任何装了 LuCI 的系统上都存在，运行时不需要额外拉取。
   PKGARCH:=all
 endef
 
