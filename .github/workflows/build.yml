@@ -9,6 +9,8 @@ jobs:
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 60
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
 
@@ -74,3 +76,21 @@ jobs:
           name: luci-app-rebootschedule-apk
           path: out/*.apk
           if-no-files-found: error
+
+      - name: 发布到 Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -e
+          gh release view latest >/dev/null 2>&1 || \
+            gh release create latest \
+              --title "最新构建" \
+              --notes "每次 push 自动构建，覆盖本 Release 的产物。
+
+          - 提交：${{ github.sha }}
+          - 运行：#${{ github.run_number }}" \
+              --prerelease
+          gh release upload latest out/*.apk --clobber
+          echo "=== 当前 release 产物 ==="
+          gh release view latest --json tagName,assets \
+            --jq '.tagName, (.assets[] | "\(.name)  \(.size) bytes")'
