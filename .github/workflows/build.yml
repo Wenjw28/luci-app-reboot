@@ -1,0 +1,61 @@
+name: build-apk
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 安装构建依赖
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends \
+            build-essential gawk git gettext unzip zlib1g-dev \
+            libncurses-dev rsync cpio python3 file zstd wget ca-certificates
+
+      - name: 下载 SDK（ImmortalWrt snapshot / airoha-an7581）
+        run: |
+          BASE=https://downloads.immortalwrt.org/snapshots/targets/airoha/an7581
+          URL=$(curl -fsSL "$BASE/" | grep -oE 'immortalwrt-sdk-[^"]+Linux-x86_64\.tar\.zst' | head -1)
+          if [ -z "$URL" ]; then
+            echo "::error::没在 $BASE 找到 SDK"
+            exit 1
+          fi
+          echo "SDK = $URL"
+          curl -fL --retry 3 -o sdk.tar.zst "$BASE/$URL"
+          mkdir -p "$RUNNER_TEMP/sdk"
+          tar --zstd -xf sdk.tar.zst -C "$RUNNER_TEMP/sdk" --strip-components=1
+          du -sh "$RUNNER_TEMP/sdk"
+
+      - name: 准备 luci feed
+        working-directory: ${{ runner.temp }}/sdk
+        run: |
+          ./scripts/feeds update luci
+          ./scripts/feeds install -a -p luci
+
+      - name: 编译插件
+        working-directory: ${{ runner.temp }}/sdk
+        run: |
+          rm -rf package/luci-app-rebootschedule
+          cp -r "$GITHUB_WORKSPACE/luci-app-rebootschedule" package/
+          make defconfig
+          make package/luci-app-rebootschedule/compile V=s
+
+      - name: 收集产物
+        run: |
+          mkdir -p out
+          find "$RUNNER_TEMP/sdk/bin" -name 'luci-app-rebootschedule*.apk' -exec cp -v {} out/ \;
+          ls -l out
+          test -n "$(ls -A out)" || { echo "::error::没有产出 apk"; exit 1; }
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: luci-app-rebootschedule-apk
+          path: out/*.apk
+          if-no-files-found: error
