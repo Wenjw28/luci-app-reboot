@@ -8,7 +8,7 @@ include $(TOPDIR)/rules.mk
 
 PKG_NAME:=luci-app-rebootschedule
 PKG_VERSION:=1.0.0
-PKG_RELEASE:=1
+PKG_RELEASE:=2
 PKG_LICENSE:=Apache-2.0
 PKG_MAINTAINER:=Wenjw <wenjw@example.com>
 
@@ -56,6 +56,31 @@ define Package/luci-app-rebootschedule/install
 	$(INSTALL_DATA) ./root/usr/share/rpcd/acl.d/luci-app-rebootschedule.json $(1)/usr/share/rpcd/acl.d/
 	$(INSTALL_DATA) ./htdocs/luci-static/resources/view/rebootschedule/overview.js \
 		$(1)/www/luci-static/resources/view/rebootschedule/overview.js
+endef
+
+# 装完/卸载后必须清 LuCI 的菜单缓存并 reload rpcd，否则新菜单不会出现。
+# luci.mk 会自动生成这段，普通包定义得自己写。
+define Package/luci-app-rebootschedule/postinst
+#!/bin/sh
+[ -n "$${IPKG_INSTROOT}" ] || {
+	rm -f /tmp/luci-indexcache.*
+	rm -rf /tmp/luci-modulecache/
+	/etc/init.d/rpcd reload 2>/dev/null
+	/etc/init.d/rebootschedule enable 2>/dev/null
+	exit 0
+}
+endef
+
+define Package/luci-app-rebootschedule/prerm
+#!/bin/sh
+[ -n "$${IPKG_INSTROOT}" ] || {
+	/etc/init.d/rebootschedule stop 2>/dev/null
+	/etc/init.d/rebootschedule disable 2>/dev/null
+	rm -f /tmp/luci-indexcache.*
+	rm -rf /tmp/luci-modulecache/
+	/etc/init.d/rpcd reload 2>/dev/null
+	exit 0
+}
 endef
 
 $(eval $(call BuildPackage,luci-app-rebootschedule))
