@@ -1,4 +1,4 @@
-﻿#
+#
 # Copyright (C) 2026 Wenjw
 #
 # This is free software, licensed under the Apache License, Version 2.0.
@@ -19,7 +19,10 @@ define Package/luci-app-rebootschedule
   CATEGORY:=LuCI
   SUBMENU:=3. Applications
   TITLE:=LuCI support for scheduled reboot
-  # 杩欐槸涓函鑴氭湰鍖咃紝涓嶅啓 +luci-base 鏄晠鎰忕殑锛氬啓浜嗕細璁?buildroot 鍘荤紪璇?  # luci-base -> lucihttp锛岃€?SDK 鐨?staging 閲岀己 lua 澶存枃浠讹紝鏋勫缓鐩存帴宕┿€?  # luci-base 鍦ㄤ换浣曡浜?LuCI 鐨勭郴缁熶笂閮藉瓨鍦紝杩愯鏃朵笉闇€瑕侀澶栨媺鍙栥€?  PKGARCH:=all
+  # 纯脚本包，故意不写 +luci-base：写了会让 buildroot 去编 luci-base ->
+  # lucihttp，而 SDK 的 staging 里缺 lua 头文件，构建直接失败。
+  # luci-base 在任何装了 LuCI 的系统上都存在。
+  PKGARCH:=all
 endef
 
 define Package/luci-app-rebootschedule/description
@@ -27,7 +30,7 @@ define Package/luci-app-rebootschedule/description
  schedule, configurable from LuCI.
 endef
 
-# 绾剼鏈寘锛氭病鏈変换浣曢渶瑕佺紪璇戠殑婧愮爜
+# 纯脚本包：没有任何需要编译的源码
 define Build/Prepare
 	mkdir -p $(PKG_BUILD_DIR)
 endef
@@ -55,7 +58,9 @@ define Package/luci-app-rebootschedule/install
 		$(1)/www/luci-static/resources/view/rebootschedule/overview.js
 endef
 
-# 瑁呭畬/鍗歌浇鍚庡繀椤绘竻 LuCI 鐨勮彍鍗曠紦瀛樺苟 reload rpcd锛屽惁鍒欐柊鑿滃崟涓嶄細鍑虹幇銆?# luci.mk 浼氳嚜鍔ㄧ敓鎴愯繖娈碉紝鏅€氬寘瀹氫箟寰楄嚜宸卞啓銆?define Package/luci-app-rebootschedule/postinst
+# 安装后必须清 LuCI 的菜单缓存并 reload rpcd，否则新菜单不会出现；
+# luci.mk 会自动生成这段，普通包定义得自己写。
+define Package/luci-app-rebootschedule/postinst
 #!/bin/sh
 [ -n "$${IPKG_INSTROOT}" ] || {
 	rm -f /tmp/luci-indexcache.*
