@@ -98,5 +98,5 @@ jobs:
 
           gh release upload latest out/*.apk --clobber
           echo "=== 当前 release 产物 ==="
-          gh release view latest --json tagName,assets,updatedAt \
-            --jq '.tagName, .updatedAt, (.assets[] | "\(.name)  \(.size) bytes")'
+          gh release view latest --json tagName,assets,publishedAt \
+            --jq '.tagName, .publishedAt, (.assets[] | "\(.name)  \(.size) bytes")'
