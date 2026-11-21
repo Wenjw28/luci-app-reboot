@@ -115,3 +115,7 @@ logread -f -e rebootschedule
 - 定时重启会中断拨号/VoIP，如果有重要业务请把时间放在凌晨。
 - `interval` 模式按「开机多久」算，不是固定时刻，重启后重新计时。
 - 首次启动 5 分钟内不会触发（此时 NTP 还没同步，避免误判）。
+
+## License
+
+GPL-2.0 — <https://www.gnu.org/licenses/old-licenses/gpl-2.0.html>

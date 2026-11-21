@@ -65,4 +65,4 @@ luci-app-rebootschedule/
 
 ## License
 
-Apache-2.0 — <https://www.apache.org/licenses/LICENSE-2.0>
+GPL-2.0 — <https://www.gnu.org/licenses/old-licenses/gpl-2.0.html>
