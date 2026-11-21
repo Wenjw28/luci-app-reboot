@@ -1,15 +1,15 @@
 #
 # Copyright (C) 2026 Wenjw
 #
-# This is free software, licensed under the Apache License, Version 2.0.
+# This is free software, licensed under the GNU General Public License v2.
 #
 
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=luci-app-rebootschedule
 PKG_VERSION:=1.0.0
-PKG_RELEASE:=4
-PKG_LICENSE:=Apache-2.0
+PKG_RELEASE:=5
+PKG_LICENSE:=GPL-2.0
 PKG_MAINTAINER:=Wenjw <wenjw@example.com>
 
 include $(INCLUDE_DIR)/package.mk
